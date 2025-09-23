@@ -33,38 +33,31 @@ public class TicketServiceImpl implements TicketService {
     public void purchaseTickets(Long accountId, TicketTypeRequest... ticketTypeRequests) throws InvalidPurchaseException {
         validate(accountId, ticketTypeRequests);
 
-        int total = calculateTotalPrice(ticketTypeRequests);
-        int seats = calculateSeats(ticketTypeRequests);
+        Map<TicketTypeRequest.Type, Integer> ticketTotals = mapTicketTypeTotals(ticketTypeRequests);
+
+        int total = calculateTotalPrice(ticketTotals);
+        int seats = calculateSeats(ticketTotals);
 
         ticketPaymentService.makePayment(accountId, total);
         seatReservationService.reserveSeat(accountId, seats);
     }
 
-    private int calculateTotalPrice(TicketTypeRequest... ticketTypeRequests) {
-        return Arrays.stream(ticketTypeRequests)
-                .filter(t -> ticketPrices.containsKey(t.getTicketType()))
-                .mapToInt(t -> ticketPrices.get(t.getTicketType()) * t.getNoOfTickets())
-                .sum();
+    private int calculateTotalPrice(Map<TicketTypeRequest.Type, Integer> ticketTotals) {
+        return ticketTotals.entrySet().stream().mapToInt(t -> t.getValue() * ticketPrices.get(t.getKey())).sum();
     }
 
-    private int calculateSeats(TicketTypeRequest... ticketTypeRequests) {
-        return Arrays.stream(ticketTypeRequests)
-                .filter(t -> ticketPrices.containsKey(t.getTicketType()) && t.getTicketType() != INFANT)
-                .mapToInt(TicketTypeRequest::getNoOfTickets)
-                .sum();
-    }
-
-    private Map<TicketTypeRequest.Type, Integer> mapTicketTypeTotals(TicketTypeRequest... ticketTypeRequests) {
-        return Arrays.stream(ticketTypeRequests)
-                .filter(t -> t.getTicketType() != null)
-                .collect(Collectors.toMap(
-                        TicketTypeRequest::getTicketType,
-                        TicketTypeRequest::getNoOfTickets
-                ));
+    private int calculateSeats(Map<TicketTypeRequest.Type, Integer> ticketTotals) {
+        return ticketTotals.entrySet().stream().filter(t -> t.getKey() != INFANT).mapToInt(Map.Entry::getValue).sum();
     }
 
     private void validate(Long accountId, TicketTypeRequest... ticketTypeRequests) {
         if (accountId == null || accountId == 0L) {
+            throw new InvalidPurchaseException();
+        }
+        if (ticketTypeRequests == null || ticketTypeRequests.length == 0) {
+            throw new InvalidPurchaseException();
+        }
+        if (!Arrays.stream(ticketTypeRequests).allMatch(t -> t.getNoOfTickets() > 0)) {
             throw new InvalidPurchaseException();
         }
         Map<TicketTypeRequest.Type, Integer> ticketTotals = mapTicketTypeTotals(ticketTypeRequests);
@@ -78,6 +71,15 @@ public class TicketServiceImpl implements TicketService {
         if (total > MAX_TICKET_NUMBER) {
             throw new InvalidPurchaseException();
         }
+    }
+
+    private Map<TicketTypeRequest.Type, Integer> mapTicketTypeTotals(TicketTypeRequest... ticketTypeRequests) {
+        return Arrays.stream(ticketTypeRequests)
+                .filter(t -> ticketPrices.containsKey(t.getTicketType()) && t.getTicketType() != null)
+                .collect(Collectors.toMap(
+                        TicketTypeRequest::getTicketType,
+                        TicketTypeRequest::getNoOfTickets
+                ));
     }
 
 }

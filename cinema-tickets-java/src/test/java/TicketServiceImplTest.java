@@ -128,6 +128,36 @@ public class TicketServiceImplTest {
         verifyNoInteractions(ticketPaymentService, seatReservationService);
     }
 
+    @Test
+    void shouldThrowExceptionForNullTicketRequest() {
+        TicketTypeRequest[] ticketArray = null;
+        assertThrows(InvalidPurchaseException.class, () -> {
+            victim.purchaseTickets(1L, ticketArray);
+        });
+
+        verifyNoInteractions(ticketPaymentService, seatReservationService);
+    }
+
+    @Test
+    void shouldThrowExceptionForEmptyTicketRequest() {
+        assertThrows(InvalidPurchaseException.class, () -> {
+            victim.purchaseTickets(1L);
+        });
+
+        verifyNoInteractions(ticketPaymentService, seatReservationService);
+    }
+
+    @Test
+    void shouldThrowExceptionForNegativeTicketsRequest() {
+        assertThrows(InvalidPurchaseException.class, () -> {
+                    victim.purchaseTickets(1L,
+                            createTicketRequest(ADULT, 2),
+                            createTicketRequest(INFANT, 1),
+                            createTicketRequest(CHILD, -2));
+        });
+        verifyNoInteractions(ticketPaymentService, seatReservationService);
+    }
+
     public TicketTypeRequest createTicketRequest(TicketTypeRequest.Type ticketType, int ticketNumber) {
         return new TicketTypeRequest(ticketType, ticketNumber);
     }
