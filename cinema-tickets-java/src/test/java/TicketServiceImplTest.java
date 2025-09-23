@@ -2,7 +2,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 import thirdparty.paymentgateway.TicketPaymentService;
 import thirdparty.seatbooking.SeatReservationService;
 import uk.gov.dwp.uc.pairtest.TicketServiceImpl;
@@ -65,6 +64,68 @@ public class TicketServiceImplTest {
 
         verify(ticketPaymentService, times(1)).makePayment(2L, 80);
         verify(seatReservationService, times(1)).reserveSeat(2L, 4);
+    }
+
+    @Test
+    void shouldThrowExceptionForChildTicket() {
+        assertThrows(InvalidPurchaseException.class, () -> {
+            victim.purchaseTickets(1L, createTicketRequest(CHILD, 1));
+        });
+
+        verifyNoInteractions(ticketPaymentService, seatReservationService);
+    }
+
+    @Test
+    void shouldThrowExceptionForInfantTicket() {
+        assertThrows(InvalidPurchaseException.class, () -> {
+            victim.purchaseTickets(1L, createTicketRequest(INFANT, 1));
+        });
+
+        verifyNoInteractions(ticketPaymentService, seatReservationService);
+    }
+
+    @Test
+    void shouldThrowExceptionForInfantAndChildTickets() {
+        assertThrows(InvalidPurchaseException.class, () -> {
+            victim.purchaseTickets(1L,
+                    createTicketRequest(CHILD, 1),
+                    createTicketRequest(INFANT, 1));
+        });
+
+        verifyNoInteractions(ticketPaymentService, seatReservationService);
+    }
+
+    @Test
+    void shouldPurchaseMaximumNumberOfTickets() {
+        victim.purchaseTickets(1L,
+                createTicketRequest(ADULT, 10),
+                createTicketRequest(CHILD, 15));
+
+        verify(ticketPaymentService, times(1)).makePayment(1L, 475);
+        verify(seatReservationService, times(1)).reserveSeat(1L, 25);
+    }
+
+    @Test
+    void shouldThrowExceptionForOverTwentyFiveTickets() {
+        assertThrows(InvalidPurchaseException.class, () -> {
+            victim.purchaseTickets(1L,
+                    createTicketRequest(CHILD, 6),
+                    createTicketRequest(INFANT, 10),
+                    createTicketRequest(ADULT, 10));
+        });
+
+        verifyNoInteractions(ticketPaymentService, seatReservationService);
+    }
+
+    @Test
+    void shouldThrowExceptionForMoreInfantsThanAdults() {
+        assertThrows(InvalidPurchaseException.class, () -> {
+            victim.purchaseTickets(1L,
+                    createTicketRequest(INFANT, 6),
+                    createTicketRequest(ADULT, 5));
+        });
+
+        verifyNoInteractions(ticketPaymentService, seatReservationService);
     }
 
     public TicketTypeRequest createTicketRequest(TicketTypeRequest.Type ticketType, int ticketNumber) {
